@@ -1,19 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
-import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye, Mail, Phone } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Edit, Eye, Mail, MoreHorizontal, Phone, Plus, Search, Trash2 } from "lucide-react";
+import { ClientForm, type ClientFormValue } from "@/components/forms/client-form";
+import { DataTable, type Column } from "@/components/shared/data-table";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { DataTable, type Column } from "@/components/shared/data-table";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -22,43 +23,101 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { apiDelete, apiPost, apiPut } from "@/lib/api";
 import { getInitials } from "@/lib/utils";
+import { useApiGet } from "@/hooks/use-api";
 
 type Client = {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  totalAppointments: number;
-  lastAppointment: string;
-  status: "active" | "inactive";
-  spent: string;
+  email: string | null;
+  phone: string | null;
+  birthDate: string | null;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
 };
 
-const clients: Client[] = [
-  { id: "1", name: "Maria Santos", email: "maria@email.com", phone: "(11) 98765-4321", totalAppointments: 24, lastAppointment: "10/06/2025", status: "active", spent: "R$ 2.880" },
-  { id: "2", name: "João Silva", email: "joao@email.com", phone: "(11) 97654-3210", totalAppointments: 18, lastAppointment: "08/06/2025", status: "active", spent: "R$ 1.440" },
-  { id: "3", name: "Lucia Ferreira", email: "lucia@email.com", phone: "(11) 96543-2109", totalAppointments: 12, lastAppointment: "05/06/2025", status: "active", spent: "R$ 960" },
-  { id: "4", name: "Pedro Costa", email: "pedro@email.com", phone: "(11) 95432-1098", totalAppointments: 8, lastAppointment: "01/06/2025", status: "inactive", spent: "R$ 640" },
-  { id: "5", name: "Ana Oliveira", email: "ana@email.com", phone: "(11) 94321-0987", totalAppointments: 31, lastAppointment: "09/06/2025", status: "active", spent: "R$ 3.720" },
-  { id: "6", name: "Roberto Lima", email: "roberto@email.com", phone: "(11) 93210-9876", totalAppointments: 6, lastAppointment: "28/05/2025", status: "inactive", spent: "R$ 480" },
-];
+type ClientPayload = {
+  name: string;
+  email?: string;
+  phone?: string;
+  birthDate?: string;
+  notes?: string;
+  isActive: boolean;
+};
 
 export default function ClientesPage() {
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [page, setPage] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const filtered = clients.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase())
+  const params = useMemo(
+    () => ({
+      page,
+      limit: 10,
+      search: search || undefined,
+      status: status === "all" ? undefined : status,
+    }),
+    [page, search, status]
   );
+
+  const {
+    data: clients,
+    isLoading,
+    error,
+    pagination,
+    refetch,
+  } = useApiGet<Client[]>("/api/clientes", { params });
+
+  const rows = clients || [];
+  const activeCount = rows.filter((client) => client.isActive).length;
+  const inactiveCount = rows.filter((client) => !client.isActive).length;
+
+  async function handleSubmit(payload: ClientPayload) {
+    setIsSubmitting(true);
+    setFormError(null);
+
+    const response = selectedClient
+      ? await apiPut<Client>(`/api/clientes/${selectedClient.id}`, payload)
+      : await apiPost<Client>("/api/clientes", payload);
+
+    setIsSubmitting(false);
+
+    if (response.error) {
+      setFormError(response.error);
+      return;
+    }
+
+    setModalOpen(false);
+    setSelectedClient(null);
+    await refetch();
+  }
+
+  async function handleDelete(client: Client) {
+    const response = await apiDelete(`/api/clientes/${client.id}`);
+    if (!response.error) {
+      await refetch();
+    }
+  }
+
+  function openCreateModal() {
+    setSelectedClient(null);
+    setFormError(null);
+    setModalOpen(true);
+  }
+
+  function openEditModal(client: Client) {
+    setSelectedClient(client);
+    setFormError(null);
+    setModalOpen(true);
+  }
 
   const columns: Column<Record<string, unknown>>[] = [
     {
@@ -73,7 +132,7 @@ export default function ClientesPage() {
             </Avatar>
             <div>
               <p className="font-medium text-gray-900">{client.name}</p>
-              <p className="text-xs text-gray-500">{client.email}</p>
+              <p className="text-xs text-gray-500">{client.email || "Sem email"}</p>
             </div>
           </div>
         );
@@ -84,35 +143,15 @@ export default function ClientesPage() {
       header: "Telefone",
       render: (row) => {
         const client = row as unknown as Client;
-        return <span className="text-sm text-gray-600">{client.phone}</span>;
+        return <span className="text-sm text-gray-600">{client.phone || "-"}</span>;
       },
     },
     {
-      key: "totalAppointments",
-      header: "Agendamentos",
+      key: "birthDate",
+      header: "Nascimento",
       render: (row) => {
         const client = row as unknown as Client;
-        return (
-          <span className="text-sm font-semibold text-gray-900">{client.totalAppointments}</span>
-        );
-      },
-    },
-    {
-      key: "spent",
-      header: "Total Gasto",
-      render: (row) => {
-        const client = row as unknown as Client;
-        return (
-          <span className="text-sm font-semibold text-emerald-600">{client.spent}</span>
-        );
-      },
-    },
-    {
-      key: "lastAppointment",
-      header: "Último Agendamento",
-      render: (row) => {
-        const client = row as unknown as Client;
-        return <span className="text-sm text-gray-500">{client.lastAppointment}</span>;
+        return <span className="text-sm text-gray-500">{client.birthDate || "-"}</span>;
       },
     },
     {
@@ -120,7 +159,7 @@ export default function ClientesPage() {
       header: "Status",
       render: (row) => {
         const client = row as unknown as Client;
-        return <StatusBadge status={client.status} />;
+        return <StatusBadge status={client.isActive ? "active" : "inactive"} />;
       },
     },
     {
@@ -136,14 +175,19 @@ export default function ClientesPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => { setSelectedClient(client); setDetailOpen(true); }}>
+              <DropdownMenuItem
+                onClick={() => {
+                  setSelectedClient(client);
+                  setDetailOpen(true);
+                }}
+              >
                 <Eye className="h-4 w-4" /> Ver perfil
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setSelectedClient(client); setModalOpen(true); }}>
+              <DropdownMenuItem onClick={() => openEditModal(client)}>
                 <Edit className="h-4 w-4" /> Editar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-500">
+              <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(client)}>
                 <Trash2 className="h-4 w-4" /> Excluir
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -159,133 +203,121 @@ export default function ClientesPage() {
         title="Clientes"
         description="Gerencie a base de clientes do seu estabelecimento."
         actions={
-          <Button variant="primary" size="sm" onClick={() => { setSelectedClient(null); setModalOpen(true); }}>
+          <Button variant="primary" size="sm" onClick={openCreateModal}>
             <Plus className="h-4 w-4" />
             Novo Cliente
           </Button>
         }
       />
 
-      <Tabs defaultValue="all">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+      <Tabs value={status} onValueChange={(value) => {
+        setPage(1);
+        setStatus(value as "all" | "active" | "inactive");
+      }}>
+        <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <TabsList>
-            <TabsTrigger value="all">Todos ({clients.length})</TabsTrigger>
-            <TabsTrigger value="active">Ativos ({clients.filter((c) => c.status === "active").length})</TabsTrigger>
-            <TabsTrigger value="inactive">Inativos ({clients.filter((c) => c.status === "inactive").length})</TabsTrigger>
+            <TabsTrigger value="all">Todos ({pagination?.total || rows.length})</TabsTrigger>
+            <TabsTrigger value="active">Ativos ({activeCount})</TabsTrigger>
+            <TabsTrigger value="inactive">Inativos ({inactiveCount})</TabsTrigger>
           </TabsList>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               placeholder="Buscar clientes..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9 w-64 rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              onChange={(event) => {
+                setPage(1);
+                setSearch(event.target.value);
+              }}
+              className="h-9 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </div>
         </div>
 
-        <TabsContent value="all">
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        <TabsContent value={status}>
           <DataTable
             columns={columns}
-            data={filtered as unknown as Record<string, unknown>[]}
+            data={rows as unknown as Record<string, unknown>[]}
+            isLoading={isLoading}
+            emptyMessage="Nenhum cliente encontrado."
             rowKey={(row) => (row as unknown as Client).id}
             currentPage={page}
-            totalPages={Math.ceil(filtered.length / 10)}
+            totalPages={pagination?.totalPages || 1}
             onPageChange={setPage}
-          />
-        </TabsContent>
-        <TabsContent value="active">
-          <DataTable
-            columns={columns}
-            data={filtered.filter((c) => c.status === "active") as unknown as Record<string, unknown>[]}
-          />
-        </TabsContent>
-        <TabsContent value="inactive">
-          <DataTable
-            columns={columns}
-            data={filtered.filter((c) => c.status === "inactive") as unknown as Record<string, unknown>[]}
           />
         </TabsContent>
       </Tabs>
 
-      {/* New/Edit Client Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md p-0">
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>{selectedClient ? "Editar Cliente" : "Novo Cliente"}</DialogTitle>
             <DialogDescription>Preencha os dados do cliente.</DialogDescription>
           </DialogHeader>
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <Input label="Nome" placeholder="Nome" defaultValue={selectedClient?.name.split(" ")[0]} />
-              <Input label="Sobrenome" placeholder="Sobrenome" defaultValue={selectedClient?.name.split(" ")[1]} />
-            </div>
-            <Input label="Email" type="email" placeholder="email@exemplo.com" defaultValue={selectedClient?.email} />
-            <Input label="Telefone" placeholder="(11) 99999-9999" defaultValue={selectedClient?.phone} />
-            <Input label="Data de nascimento" type="date" />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button variant="primary" onClick={() => setModalOpen(false)}>
-              {selectedClient ? "Salvar" : "Adicionar"}
-            </Button>
-          </DialogFooter>
+          <ClientForm
+            initialValue={selectedClient as ClientFormValue | null}
+            isSubmitting={isSubmitting}
+            error={formError}
+            onCancel={() => setModalOpen(false)}
+            onSubmit={handleSubmit}
+          />
         </DialogContent>
       </Dialog>
 
-      {/* Client Detail Modal */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Perfil do Cliente</DialogTitle>
           </DialogHeader>
           {selectedClient && (
-            <div className="p-6 space-y-4">
+            <div className="space-y-4 p-6">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
                   <AvatarFallback className="text-lg">{getInitials(selectedClient.name)}</AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="text-lg font-bold text-gray-900">{selectedClient.name}</p>
-                  <StatusBadge status={selectedClient.status} />
+                  <StatusBadge status={selectedClient.isActive ? "active" : "inactive"} />
                 </div>
               </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Mail className="h-4 w-4 text-gray-400" /> {selectedClient.email}
+                  <Mail className="h-4 w-4 text-gray-400" /> {selectedClient.email || "Sem email"}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Phone className="h-4 w-4 text-gray-400" /> {selectedClient.phone}
+                  <Phone className="h-4 w-4 text-gray-400" /> {selectedClient.phone || "Sem telefone"}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-100">
-                <Card>
-                  <CardContent className="p-3 text-center">
-                    <p className="text-lg font-bold text-gray-900">{selectedClient.totalAppointments}</p>
-                    <p className="text-xs text-gray-500">Visitas</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3 text-center">
-                    <p className="text-lg font-bold text-emerald-600">{selectedClient.spent}</p>
-                    <p className="text-xs text-gray-500">Gasto total</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3 text-center">
-                    <p className="text-lg font-bold text-gray-900">{selectedClient.lastAppointment}</p>
-                    <p className="text-xs text-gray-500">Última visita</p>
-                  </CardContent>
-                </Card>
+              <Card>
+                <CardContent className="p-3">
+                  <p className="text-xs font-semibold uppercase text-gray-400">Observacoes</p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {selectedClient.notes || "Nenhuma observacao cadastrada."}
+                  </p>
+                </CardContent>
+              </Card>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDetailOpen(false)}>
+                  Fechar
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setDetailOpen(false);
+                    openEditModal(selectedClient);
+                  }}
+                >
+                  Editar
+                </Button>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>Fechar</Button>
-            <Button variant="primary" onClick={() => { setDetailOpen(false); setModalOpen(true); }}>
-              Editar
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

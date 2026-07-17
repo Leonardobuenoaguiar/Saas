@@ -1,73 +1,182 @@
 "use client";
 
-import React, { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  addDays,
+  endOfWeek,
+  format,
+  getDay,
+  parseISO,
+  startOfWeek,
+  subDays,
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
-  Plus,
   Clock,
-  Filter,
+  Edit,
   Grid3x3,
   List,
+  Plus,
+  Trash2,
 } from "lucide-react";
+import { AppointmentForm, type AppointmentFormValue } from "@/components/forms/appointment-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getInitials } from "@/lib/utils";
+import { apiDelete, apiPost, apiPut } from "@/lib/api";
+import { cn, getInitials } from "@/lib/utils";
+import { useApiGet } from "@/hooks/use-api";
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 8);
-const DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+const HOURS = Array.from({ length: 12 }, (_, index) => index + 8);
+const DAY_LABELS = ["Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado", "Domingo"];
 
-const appointments = [
-  {
-    id: "1", client: "Maria Santos", service: "Corte e Escova", employee: "Ana Lima",
-    day: 0, hour: 9, duration: 2, status: "confirmed" as const, color: "bg-violet-100 border-violet-300 text-violet-800",
-  },
-  {
-    id: "2", client: "João Silva", service: "Barba", employee: "Carlos Souza",
-    day: 0, hour: 10, duration: 1, status: "confirmed" as const, color: "bg-blue-100 border-blue-300 text-blue-800",
-  },
-  {
-    id: "3", client: "Lucia Ferreira", service: "Manicure", employee: "Paula Costa",
-    day: 1, hour: 11, duration: 1, status: "pending" as const, color: "bg-amber-100 border-amber-300 text-amber-800",
-  },
-  {
-    id: "4", client: "Pedro Costa", service: "Corte", employee: "Ana Lima",
-    day: 2, hour: 14, duration: 1, status: "confirmed" as const, color: "bg-emerald-100 border-emerald-300 text-emerald-800",
-  },
-  {
-    id: "5", client: "Ana Oliveira", service: "Coloração", employee: "Paula Costa",
-    day: 3, hour: 10, duration: 3, status: "confirmed" as const, color: "bg-pink-100 border-pink-300 text-pink-800",
-  },
-  {
-    id: "6", client: "Roberto Lima", service: "Corte", employee: "Carlos Souza",
-    day: 4, hour: 9, duration: 1, status: "cancelled" as const, color: "bg-red-100 border-red-300 text-red-800",
-  },
-  {
-    id: "7", client: "Fernanda Ramos", service: "Escova", employee: "Ana Lima",
-    day: 5, hour: 13, duration: 2, status: "confirmed" as const, color: "bg-violet-100 border-violet-300 text-violet-800",
-  },
-];
+type AppointmentStatus = "pending" | "confirmed" | "completed" | "cancelled" | "no_show";
+
+type Appointment = {
+  id: string;
+  clientId: string | null;
+  employeeId: string | null;
+  serviceId: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  price: string;
+  status: AppointmentStatus;
+  notes: string | null;
+  clientName: string | null;
+  clientPhone: string | null;
+  serviceName: string | null;
+  serviceColor: string | null;
+  employeeName: string | null;
+};
+
+type Client = {
+  id: string;
+  name: string;
+};
+
+type Service = {
+  id: string;
+  name: string;
+  duration: number;
+  price: string;
+};
+
+type Employee = {
+  id: string;
+  name: string;
+};
+
+type AppointmentPayload = {
+  clientId?: string;
+  employeeId: string;
+  serviceId: string;
+  date: string;
+  startTime: string;
+  notes?: string;
+};
 
 export default function AgendaPage() {
   const [view, setView] = useState<"week" | "list">("week");
-  const [newApptOpen, setNewApptOpen] = useState(false);
-  const [selectedAppt, setSelectedAppt] = useState<typeof appointments[0] | null>(null);
-  const [currentWeek, setCurrentWeek] = useState("10 - 16 de Junho, 2025");
+  const [weekStart, setWeekStart] = useState(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  const appointmentParams = useMemo(
+    () => ({
+      from: format(weekStart, "yyyy-MM-dd"),
+      to: format(weekEnd, "yyyy-MM-dd"),
+      limit: 100,
+    }),
+    [weekStart, weekEnd]
+  );
+
+  const { data: appointments, isLoading, error, refetch } = useApiGet<Appointment[]>("/api/agendamentos", {
+    params: appointmentParams,
+  });
+  const { data: clients } = useApiGet<Client[]>("/api/clientes", { params: { limit: 100, status: "active" } });
+  const { data: services } = useApiGet<Service[]>("/api/servicos", { params: { limit: 100, status: "active" } });
+  const { data: employees } = useApiGet<Employee[]>("/api/funcionarios", { params: { limit: 100, status: "active" } });
+
+  const days = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
+    [weekStart]
+  );
+
+  const appointmentRows = appointments || [];
+  const weekLabel = `${format(weekStart, "dd MMM", { locale: ptBR })} - ${format(weekEnd, "dd MMM yyyy", {
+    locale: ptBR,
+  })}`;
+
+  async function handleSubmit(payload: AppointmentPayload) {
+    setIsSubmitting(true);
+    setFormError(null);
+
+    const response = selectedAppointment
+      ? await apiPut<Appointment>(`/api/agendamentos/${selectedAppointment.id}`, payload)
+      : await apiPost<Appointment>("/api/agendamentos", payload);
+
+    setIsSubmitting(false);
+
+    if (response.error) {
+      setFormError(response.error);
+      return;
+    }
+
+    setModalOpen(false);
+    setSelectedAppointment(null);
+    await refetch();
+  }
+
+  async function updateStatus(appointment: Appointment, status: AppointmentStatus) {
+    const response = await apiPut<Appointment>(`/api/agendamentos/${appointment.id}`, { status });
+    if (!response.error) {
+      setDetailOpen(false);
+      setSelectedAppointment(null);
+      await refetch();
+    }
+  }
+
+  async function handleDelete(appointment: Appointment) {
+    const response = await apiDelete(`/api/agendamentos/${appointment.id}`);
+    if (!response.error) {
+      setDetailOpen(false);
+      setSelectedAppointment(null);
+      await refetch();
+    }
+  }
+
+  function openCreateModal() {
+    setSelectedAppointment(null);
+    setFormError(null);
+    setModalOpen(true);
+  }
+
+  function openEditModal(appointment: Appointment) {
+    setSelectedAppointment(appointment);
+    setFormError(null);
+    setDetailOpen(false);
+    setModalOpen(true);
+  }
 
   return (
     <div>
@@ -75,107 +184,114 @@ export default function AgendaPage() {
         title="Agenda"
         description="Visualize e gerencie todos os agendamentos."
         actions={
-          <Button variant="primary" size="sm" onClick={() => setNewApptOpen(true)}>
+          <Button variant="primary" size="sm" onClick={openCreateModal}>
             <Plus className="h-4 w-4" />
             Novo Agendamento
           </Button>
         }
       />
 
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+      <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon-sm" onClick={() => {}}>
+          <Button variant="outline" size="icon-sm" onClick={() => setWeekStart((date) => subDays(date, 7))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-semibold text-gray-900 min-w-[200px] text-center">
-            {currentWeek}
-          </span>
-          <Button variant="outline" size="icon-sm" onClick={() => {}}>
+          <span className="min-w-[210px] text-center text-sm font-semibold text-gray-900">{weekLabel}</span>
+          <Button variant="outline" size="icon-sm" onClick={() => setWeekStart((date) => addDays(date, 7))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+          >
             Hoje
           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4" />
-            Filtrar
-          </Button>
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-            <button
-              onClick={() => setView("week")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${view === "week" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-            >
-              <Grid3x3 className="h-3.5 w-3.5" />
-              Semana
-            </button>
-            <button
-              onClick={() => setView("list")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${view === "list" ? "bg-gray-900 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-            >
-              <List className="h-3.5 w-3.5" />
-              Lista
-            </button>
-          </div>
+        <div className="flex rounded-lg border border-gray-200 bg-white">
+          <button
+            onClick={() => setView("week")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors",
+              view === "week" ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50"
+            )}
+          >
+            <Grid3x3 className="h-3.5 w-3.5" />
+            Semana
+          </button>
+          <button
+            onClick={() => setView("list")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors",
+              view === "list" ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50"
+            )}
+          >
+            <List className="h-3.5 w-3.5" />
+            Lista
+          </button>
         </div>
       </div>
 
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       {view === "week" ? (
-        /* Week View */
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <div className="min-w-[800px]">
-              {/* Header */}
+            <div className="min-w-[860px]">
               <div className="grid grid-cols-8 border-b border-gray-100">
-                <div className="p-3 text-xs text-gray-400 text-center" />
-                {DAYS.map((day, i) => (
-                  <div
-                    key={day}
-                    className={`p-3 text-center border-l border-gray-100 ${i === 0 ? "bg-violet-50" : ""}`}
-                  >
-                    <p className="text-xs font-medium text-gray-500">{day}</p>
-                    <p className={`text-sm font-bold mt-0.5 ${i === 0 ? "text-violet-600" : "text-gray-900"}`}>
-                      {10 + i}
-                    </p>
+                <div className="p-3 text-center text-xs text-gray-400" />
+                {days.map((day, index) => (
+                  <div key={day.toISOString()} className="border-l border-gray-100 p-3 text-center">
+                    <p className="text-xs font-medium text-gray-500">{DAY_LABELS[index]}</p>
+                    <p className="mt-0.5 text-sm font-bold text-gray-900">{format(day, "dd/MM")}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Time slots */}
               {HOURS.map((hour) => (
-                <div key={hour} className="grid grid-cols-8 border-b border-gray-50 min-h-[60px]">
-                  <div className="px-3 py-2 flex items-start justify-end">
-                    <span className="text-xs text-gray-400 font-medium">{hour}:00</span>
+                <div key={hour} className="grid min-h-[64px] grid-cols-8 border-b border-gray-50">
+                  <div className="flex items-start justify-end px-3 py-2">
+                    <span className="text-xs font-medium text-gray-400">{hour}:00</span>
                   </div>
-                  {DAYS.map((_, dayIdx) => {
-                    const dayAppts = appointments.filter(
-                      (a) => a.day === dayIdx && a.hour === hour
-                    );
+                  {days.map((day) => {
+                    const slotAppointments = appointmentRows.filter((appointment) => {
+                      const date = parseISO(`${appointment.date}T00:00:00`);
+                      const startHour = Number(appointment.startTime.slice(0, 2));
+                      return getDay(date) === getDay(day) && appointment.date === format(day, "yyyy-MM-dd") && startHour === hour;
+                    });
+
                     return (
-                      <div
-                        key={dayIdx}
-                        className="border-l border-gray-100 p-1 relative"
-                        onClick={() => setNewApptOpen(true)}
-                      >
-                        {dayAppts.map((appt) => (
-                          <motion.div
-                            key={appt.id}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedAppt(appt);
-                            }}
-                            className={`rounded-md border px-2 py-1 cursor-pointer hover:opacity-90 transition-opacity ${appt.color}`}
-                            style={{ minHeight: `${appt.duration * 56}px` }}
-                          >
-                            <p className="text-xs font-semibold leading-tight truncate">{appt.client}</p>
-                            <p className="text-xs opacity-75 truncate">{appt.service}</p>
-                          </motion.div>
-                        ))}
+                      <div key={day.toISOString()} className="border-l border-gray-100 p-1" onClick={openCreateModal}>
+                        {isLoading ? (
+                          <div className="h-10 animate-pulse rounded-md bg-gray-100" />
+                        ) : (
+                          slotAppointments.map((appointment) => (
+                            <motion.div
+                              key={appointment.id}
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedAppointment(appointment);
+                                setDetailOpen(true);
+                              }}
+                              className="cursor-pointer rounded-md border px-2 py-1 text-xs transition-opacity hover:opacity-90"
+                              style={{
+                                borderColor: appointment.serviceColor || "#7c3aed",
+                                backgroundColor: `${appointment.serviceColor || "#7c3aed"}18`,
+                                color: "#111827",
+                              }}
+                            >
+                              <p className="truncate font-semibold">{appointment.clientName || "Cliente"}</p>
+                              <p className="truncate text-gray-500">{appointment.serviceName || "Servico"}</p>
+                            </motion.div>
+                          ))
+                        )}
                       </div>
                     );
                   })}
@@ -185,46 +301,57 @@ export default function AgendaPage() {
           </div>
         </Card>
       ) : (
-        /* List View */
         <div className="space-y-3">
-          {DAYS.slice(0, 5).map((day, dayIdx) => {
-            const dayAppts = appointments.filter((a) => a.day === dayIdx);
+          {days.map((day) => {
+            const dayAppointments = appointmentRows.filter((appointment) => appointment.date === format(day, "yyyy-MM-dd"));
+
             return (
-              <Card key={day}>
-                <CardHeader className="py-3 px-6">
+              <Card key={day.toISOString()}>
+                <CardHeader className="px-6 py-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900">{day}, {10 + dayIdx} de Junho</p>
-                      <Badge variant="primary">{dayAppts.length} agendamentos</Badge>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                      </p>
+                      <Badge variant="primary">{dayAppointments.length} agendamentos</Badge>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {dayAppts.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">Nenhum agendamento</p>
+                  {dayAppointments.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-gray-400">Nenhum agendamento</p>
                   ) : (
                     <div className="divide-y divide-gray-50">
-                      {dayAppts.map((appt) => (
-                        <div
-                          key={appt.id}
-                          className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 cursor-pointer transition-colors"
-                          onClick={() => setSelectedAppt(appt)}
+                      {dayAppointments.map((appointment) => (
+                        <button
+                          key={appointment.id}
+                          className="flex w-full items-center gap-4 px-6 py-3.5 text-left transition-colors hover:bg-gray-50"
+                          onClick={() => {
+                            setSelectedAppointment(appointment);
+                            setDetailOpen(true);
+                          }}
                         >
                           <Avatar className="h-9 w-9">
-                            <AvatarFallback className="text-xs">{getInitials(appt.client)}</AvatarFallback>
+                            <AvatarFallback className="text-xs">
+                              {getInitials(appointment.clientName || "Cliente")}
+                            </AvatarFallback>
                           </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900">{appt.client}</p>
-                            <p className="text-xs text-gray-500">{appt.service} · {appt.employee}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {appointment.clientName || "Cliente"}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {appointment.serviceName || "Servico"} - {appointment.employeeName || "Profissional"}
+                            </p>
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1 text-gray-500">
                               <Clock className="h-3.5 w-3.5" />
-                              <span className="text-xs">{appt.hour}:00</span>
+                              <span className="text-xs">{appointment.startTime}</span>
                             </div>
-                            <StatusBadge status={appt.status} />
+                            <StatusBadge status={appointment.status} />
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -235,90 +362,78 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* New Appointment Modal */}
-      <Dialog open={newApptOpen} onOpenChange={setNewApptOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Novo Agendamento</DialogTitle>
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md p-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>{selectedAppointment ? "Editar Agendamento" : "Novo Agendamento"}</DialogTitle>
             <DialogDescription>Preencha os dados do agendamento.</DialogDescription>
           </DialogHeader>
-          <div className="p-6 space-y-4">
-            <Input label="Cliente" placeholder="Nome ou busque um cliente..." />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Serviço</label>
-              <Select>
-                <SelectTrigger><SelectValue placeholder="Selecione o serviço" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="corte">Corte Feminino</SelectItem>
-                  <SelectItem value="coloracao">Coloração</SelectItem>
-                  <SelectItem value="manicure">Manicure</SelectItem>
-                  <SelectItem value="barba">Barba</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Profissional</label>
-              <Select>
-                <SelectTrigger><SelectValue placeholder="Selecione o profissional" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ana">Ana Lima</SelectItem>
-                  <SelectItem value="carlos">Carlos Souza</SelectItem>
-                  <SelectItem value="paula">Paula Costa</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Input label="Data" type="date" />
-              <Input label="Horário" type="time" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNewApptOpen(false)}>Cancelar</Button>
-            <Button variant="primary" onClick={() => setNewApptOpen(false)}>Confirmar</Button>
-          </DialogFooter>
+          <AppointmentForm
+            initialValue={selectedAppointment as AppointmentFormValue | null}
+            clients={clients || []}
+            services={services || []}
+            employees={employees || []}
+            isSubmitting={isSubmitting}
+            error={formError}
+            onCancel={() => setModalOpen(false)}
+            onSubmit={handleSubmit}
+          />
         </DialogContent>
       </Dialog>
 
-      {/* Appointment Detail Modal */}
-      <Dialog open={!!selectedAppt} onOpenChange={() => setSelectedAppt(null)}>
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Detalhes do Agendamento</DialogTitle>
           </DialogHeader>
-          {selectedAppt && (
-            <div className="p-6 space-y-4">
+          {selectedAppointment && (
+            <div className="space-y-4 p-6">
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12">
-                  <AvatarFallback>{getInitials(selectedAppt.client)}</AvatarFallback>
+                  <AvatarFallback>{getInitials(selectedAppointment.clientName || "Cliente")}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-semibold text-gray-900">{selectedAppt.client}</p>
-                  <p className="text-sm text-gray-500">{selectedAppt.service}</p>
+                  <p className="font-semibold text-gray-900">{selectedAppointment.clientName || "Cliente"}</p>
+                  <p className="text-sm text-gray-500">{selectedAppointment.serviceName || "Servico"}</p>
                 </div>
               </div>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Profissional</span>
-                  <span className="font-medium text-gray-900">{selectedAppt.employee}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Horário</span>
-                  <span className="font-medium text-gray-900">{selectedAppt.hour}:00</span>
-                </div>
+                <DetailRow label="Profissional" value={selectedAppointment.employeeName || "-"} />
+                <DetailRow label="Data" value={selectedAppointment.date} />
+                <DetailRow label="Horario" value={`${selectedAppointment.startTime} - ${selectedAppointment.endTime}`} />
                 <div className="flex justify-between">
                   <span className="text-gray-500">Status</span>
-                  <StatusBadge status={selectedAppt.status} />
+                  <StatusBadge status={selectedAppointment.status} />
                 </div>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => openEditModal(selectedAppointment)}>
+                  <Edit className="h-4 w-4" />
+                  Editar
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => updateStatus(selectedAppointment, "completed")}>
+                  Concluir
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => updateStatus(selectedAppointment, "cancelled")}>
+                  Cancelar
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(selectedAppointment)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           )}
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSelectedAppt(null)}>Fechar</Button>
-            <Button variant="destructive" size="sm">Cancelar</Button>
-            <Button variant="primary" size="sm">Editar</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-medium text-gray-900">{value}</span>
     </div>
   );
 }

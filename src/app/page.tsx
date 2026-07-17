@@ -286,7 +286,7 @@ export default function LandingPage() {
                   <ArrowRight className="h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="/agendamento/demo">
+              <Link href="/agendar/demo">
                 <Button variant="outline" size="xl">
                   <Globe className="h-5 w-5" />
                   Ver demo ao vivo
@@ -684,11 +684,12 @@ export default function LandingPage() {
               © 2025 FlowBook. Todos os direitos reservados.
             </p>
             <div className="flex gap-4">
-              {["Privacidade", "Termos", "Cookies"].map((item) => (
-                <a key={item} href="#" className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
-                  {item}
-                </a>
-              ))}
+              <Link href="/privacidade" className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                Privacidade
+              </Link>
+              <Link href="/termos" className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                Termos
+              </Link>
             </div>
           </div>
         </div>

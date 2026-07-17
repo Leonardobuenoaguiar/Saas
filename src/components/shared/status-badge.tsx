@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
 
@@ -11,6 +10,7 @@ type StatusType =
   | "pending"
   | "cancelled"
   | "completed"
+  | "no_show"
   | "income"
   | "expense";
 
@@ -20,7 +20,8 @@ const statusConfig: Record<StatusType, { label: string; variant: BadgeProps["var
   confirmed: { label: "Confirmado", variant: "success" },
   pending: { label: "Pendente", variant: "warning" },
   cancelled: { label: "Cancelado", variant: "danger" },
-  completed: { label: "Concluído", variant: "primary" },
+  completed: { label: "Concluido", variant: "primary" },
+  no_show: { label: "Nao compareceu", variant: "warning" },
   income: { label: "Receita", variant: "success" },
   expense: { label: "Despesa", variant: "danger" },
 };
