@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useParams } from "next/navigation";
-import { Calendar, CheckCircle2, Clock, MapPin, Phone, Scissors, UserRound } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Calendar, Clock, MapPin, Phone, Scissors, UserRound } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { apiPost } from "@/lib/api";
+import { buildGoogleMapsSearchUrl } from "@/lib/integrations/maps";
 import { formatCurrency } from "@/lib/utils";
 
 type PublicCompany = {
@@ -63,6 +64,7 @@ const fallbackSlots = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15
 
 export default function PublicBookingPage() {
   const params = useParams<{ slug: string }>();
+  const router = useRouter();
   const slug = params.slug;
   const [data, setData] = useState<PublicBookingData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +74,6 @@ export default function PublicBookingPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [success, setSuccess] = useState<{ date: string; startTime: string } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -107,6 +108,9 @@ export default function PublicBookingPage() {
   }, [slug]);
 
   const selectedService = data?.services.find((service) => service.id === selectedServiceId) || null;
+  const mapsUrl = data
+    ? buildGoogleMapsSearchUrl([data.company.address, data.company.city, data.company.state])
+    : "";
   const availableEmployees = useMemo(() => {
     if (!data || !selectedServiceId) return [];
     return data.employees.filter((employee) => {
@@ -140,7 +144,7 @@ export default function PublicBookingPage() {
     const formData = new FormData(event.currentTarget);
     setIsSubmitting(true);
 
-    const response = await apiPost<{ date: string; startTime: string }>(`/api/publico/${slug}/agendar`, {
+    const response = await apiPost<{ id: string; date: string; startTime: string; endTime: string; status: string }>(`/api/publico/${slug}/agendar`, {
       serviceId: selectedServiceId,
       employeeId: selectedEmployeeId,
       date: selectedDate,
@@ -158,10 +162,15 @@ export default function PublicBookingPage() {
       return;
     }
 
-    setSuccess({
-      date: response.data?.date || selectedDate,
-      startTime: response.data?.startTime || selectedTime,
+    const query = new URLSearchParams({
+      data: response.data?.date || selectedDate,
+      horario: response.data?.startTime || selectedTime,
+      servico: selectedService?.name || "Servico",
+      profissional: data?.employees.find((employee) => employee.id === selectedEmployeeId)?.name || "Profissional",
+      empresa: data?.company.name || "Empresa",
     });
+
+    router.push(`/agendar/${slug}/confirmar?${query.toString()}`);
   }
 
   if (isLoading) {
@@ -189,30 +198,6 @@ export default function PublicBookingPage() {
 
   if (!data) return null;
 
-  if (success) {
-    return (
-      <main className="min-h-screen bg-gray-50 px-4 py-10">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mx-auto max-w-lg rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm"
-        >
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-            <CheckCircle2 className="h-7 w-7" />
-          </div>
-          <h1 className="mt-5 text-2xl font-bold text-gray-900">Agendamento solicitado</h1>
-          <p className="mt-2 text-sm leading-relaxed text-gray-500">
-            Recebemos sua solicitacao para {success.date} as {success.startTime}. A equipe de{" "}
-            {data.company.name} vai confirmar o horario.
-          </p>
-          <Button className="mt-6" variant="primary" onClick={() => setSuccess(null)}>
-            Fazer outro agendamento
-          </Button>
-        </motion.div>
-      </main>
-    );
-  }
-
   return (
     <main className="min-h-screen bg-gray-50">
       <section className="border-b border-gray-200 bg-white">
@@ -236,10 +221,15 @@ export default function PublicBookingPage() {
                 </p>
               )}
               {(data.company.city || data.company.address) && (
-                <p className="flex items-center gap-2">
+                <a
+                  className="flex items-center gap-2 transition-colors hover:text-violet-700"
+                  href={mapsUrl || undefined}
+                  target={mapsUrl ? "_blank" : undefined}
+                  rel={mapsUrl ? "noreferrer" : undefined}
+                >
                   <MapPin className="h-4 w-4 text-violet-500" />
                   {[data.company.address, data.company.city, data.company.state].filter(Boolean).join(", ")}
-                </p>
+                </a>
               )}
             </div>
           </div>

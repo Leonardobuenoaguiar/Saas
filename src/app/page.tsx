@@ -1,696 +1,457 @@
 "use client";
 
-import React, { useState } from "react";
 import Link from "next/link";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useState } from "react";
+import { motion } from "framer-motion";
 import {
-  Calendar,
-  Users,
-  BarChart3,
-  Zap,
-  Star,
   ArrowRight,
+  BarChart3,
+  CalendarCheck,
   CheckCircle,
-  Menu,
-  X,
-  DollarSign,
-  Clock,
-  Smartphone,
-  Shield,
-  TrendingUp,
-  Globe,
   ChevronRight,
+  Clock,
+  CreditCard,
+  Menu,
+  MessageCircle,
+  Scissors,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Users,
+  X,
+  Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { SAAS_PLANS } from "@/lib/constants";
+
+const navItems = [
+  { label: "Dores", href: "#dores" },
+  { label: "Como funciona", href: "#como-funciona" },
+  { label: "Recursos", href: "#recursos" },
+  { label: "Precos", href: "#precos" },
+];
+
+const pains = [
+  "Agenda perdida em conversas de WhatsApp",
+  "Cliente esquecendo horario e faltando",
+  "Profissional sem visao clara do dia",
+  "Controle financeiro separado em planilha",
+];
 
 const features = [
   {
-    icon: Calendar,
-    title: "Agenda Inteligente",
-    description: "Gerencie todos os agendamentos em uma interface visual intuitiva com arrastar e soltar.",
-    color: "text-violet-600",
-    bg: "bg-violet-50",
+    icon: CalendarCheck,
+    title: "Agenda online por link",
+    description: "Seu cliente escolhe servico, profissional, data e horario em uma pagina publica simples de usar no celular.",
+  },
+  {
+    icon: MessageCircle,
+    title: "Preparado para lembretes",
+    description: "Estrutura pronta para notificacoes por email e WhatsApp, reduzindo faltas e mensagens repetitivas.",
   },
   {
     icon: Users,
-    title: "Gestão de Clientes",
-    description: "Histórico completo de clientes, preferências e notificações automáticas.",
-    color: "text-blue-600",
-    bg: "bg-blue-50",
+    title: "Historico de clientes",
+    description: "Veja contatos, observacoes e recorrencia para atender melhor e vender mais no retorno.",
   },
   {
-    icon: DollarSign,
-    title: "Controle Financeiro",
-    description: "Relatórios financeiros detalhados, fluxo de caixa e análise de receitas.",
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-  },
-  {
-    icon: Smartphone,
-    title: "Página Pública",
-    description: "Página de agendamento personalizada para seus clientes agendarem online.",
-    color: "text-amber-600",
-    bg: "bg-amber-50",
+    icon: CreditCard,
+    title: "Financeiro simples",
+    description: "Acompanhe entradas, despesas e receitas do mes sem transformar a rotina em contabilidade pesada.",
   },
   {
     icon: BarChart3,
-    title: "Relatórios Avançados",
-    description: "Insights poderosos sobre performance, serviços mais populares e crescimento.",
-    color: "text-pink-600",
-    bg: "bg-pink-50",
+    title: "Relatorios de crescimento",
+    description: "Descubra servicos populares, horarios fortes, cancelamentos e faturamento com dados reais.",
   },
   {
-    icon: Shield,
-    title: "Segurança Total",
-    description: "Seus dados protegidos com criptografia de ponta e backup automático diário.",
-    color: "text-indigo-600",
-    bg: "bg-indigo-50",
+    icon: ShieldCheck,
+    title: "Base segura para SaaS",
+    description: "Autenticacao com cookie httpOnly, validacao de dados, isolamento por empresa e protecao de rotas.",
   },
 ];
 
-const plans = [
-  {
-    name: "Starter",
-    price: "R$ 49",
-    period: "/mês",
-    description: "Ideal para profissionais autônomos",
-    features: [
-      "Até 100 agendamentos/mês",
-      "1 funcionário",
-      "Página pública básica",
-      "Suporte por email",
-    ],
-    cta: "Começar grátis",
-    highlight: false,
-  },
-  {
-    name: "Pro",
-    price: "R$ 99",
-    period: "/mês",
-    description: "Para equipes em crescimento",
-    features: [
-      "Agendamentos ilimitados",
-      "Até 10 funcionários",
-      "Página pública personalizada",
-      "Relatórios avançados",
-      "Suporte prioritário",
-      "Notificações automáticas",
-    ],
-    cta: "Começar grátis",
-    highlight: true,
-  },
-  {
-    name: "Enterprise",
-    price: "R$ 249",
-    period: "/mês",
-    description: "Para grandes negócios",
-    features: [
-      "Tudo do Pro",
-      "Funcionários ilimitados",
-      "Multi-unidades",
-      "API access",
-      "Suporte dedicado 24/7",
-      "Onboarding personalizado",
-    ],
-    cta: "Falar com vendas",
-    highlight: false,
-  },
+const steps = [
+  "Cadastre sua empresa",
+  "Crie servicos e profissionais",
+  "Compartilhe seu link de agendamento",
+  "Acompanhe agenda, clientes e financeiro",
 ];
 
 const testimonials = [
   {
-    name: "Camila Santos",
-    role: "Proprietária, Studio Beauty",
-    content: "O FlowBook transformou minha gestão. Reduzi faltas em 70% com os lembretes automáticos!",
-    rating: 5,
+    name: "Camila Rocha",
+    role: "Studio de beleza",
+    text: "Antes eu confirmava tudo manualmente. Agora o cliente agenda pelo link e eu acordo com a agenda organizada.",
   },
   {
-    name: "Dr. Rafael Mendes",
-    role: "Clínica Odontológica",
-    content: "Interface incrível e muito fácil de usar. Minha equipe adaptou em menos de um dia.",
-    rating: 5,
+    name: "Marcos Vieira",
+    role: "Barbearia",
+    text: "O diferencial foi parar de perder horario no WhatsApp. O painel mostra o dia inteiro de um jeito muito claro.",
   },
   {
-    name: "Juliana Costa",
-    role: "Barbearia Elite",
-    content: "Os relatórios financeiros me ajudaram a identificar meus serviços mais lucrativos.",
-    rating: 5,
+    name: "Bianca Lopes",
+    role: "Estetica facial",
+    text: "Consigo ver quais procedimentos mais vendem e quais clientes voltam. Ficou muito mais facil tomar decisao.",
   },
 ];
 
-const stats = [
-  { value: "12.000+", label: "Estabelecimentos" },
-  { value: "2M+", label: "Agendamentos/mês" },
-  { value: "98%", label: "Satisfação" },
-  { value: "24/7", label: "Suporte" },
+const comparison = [
+  { old: "Agendamentos espalhados no WhatsApp", flowbook: "Link publico com horarios organizados" },
+  { old: "Confirmacao manual e repetitiva", flowbook: "Fluxo pronto para lembretes automaticos" },
+  { old: "Planilha para clientes e caixa", flowbook: "Clientes, agenda e financeiro no mesmo painel" },
+  { old: "Sem saber quais servicos vendem mais", flowbook: "Relatorios por servico, status e receita" },
 ];
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
-      {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-purple-700 shadow-sm">
-                <Zap className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-lg font-bold text-gray-900">FlowBook</span>
-            </div>
+    <div className="min-h-screen bg-white text-gray-900">
+      <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white shadow-sm">
+              <Zap className="h-4 w-4" />
+            </span>
+            <span className="text-lg font-bold">FlowBook</span>
+          </Link>
 
-            <nav className="hidden md:flex items-center gap-8">
-              {["Funcionalidades", "Preços", "Clientes", "Blog"].map((item) => (
-                <a
-                  key={item}
-                  href={`#${item.toLowerCase()}`}
-                  className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  {item}
-                </a>
-              ))}
-            </nav>
-
-            <div className="hidden md:flex items-center gap-3">
-              <Link href="/login">
-                <Button variant="ghost" size="sm">
-                  Entrar
-                </Button>
-              </Link>
-              <Link href="/cadastro">
-                <Button variant="primary" size="sm">
-                  Começar grátis
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden rounded-lg p-2 text-gray-600 hover:bg-gray-100"
-            >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-gray-100 bg-white px-4 py-4 space-y-4"
-          >
-            {["Funcionalidades", "Preços", "Clientes", "Blog"].map((item) => (
-              <a
-                key={item}
-                href={`#${item.toLowerCase()}`}
-                className="block text-sm font-medium text-gray-600 hover:text-gray-900 py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {item}
+          <nav className="hidden items-center gap-7 md:flex">
+            {navItems.map((item) => (
+              <a key={item.href} href={item.href} className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900">
+                {item.label}
               </a>
             ))}
-            <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
-              <Link href="/login">
-                <Button variant="outline" className="w-full">
-                  Entrar
-                </Button>
-              </Link>
+          </nav>
+
+          <div className="hidden items-center gap-3 md:flex">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/login">Entrar</Link>
+            </Button>
+            <Button variant="primary" size="sm" asChild>
               <Link href="/cadastro">
-                <Button variant="primary" className="w-full">
-                  Começar grátis
-                </Button>
+                Testar gratis
+                <ArrowRight className="h-4 w-4" />
               </Link>
+            </Button>
+          </div>
+
+          <button
+            type="button"
+            aria-label="Abrir menu"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 md:hidden"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+
+        {mobileMenuOpen && (
+          <div className="border-t border-gray-100 bg-white px-4 py-4 md:hidden">
+            <div className="space-y-2">
+              {navItems.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  {item.label}
+                </a>
+              ))}
             </div>
-          </motion.div>
+            <div className="mt-4 grid gap-2 border-t border-gray-100 pt-4">
+              <Button variant="outline" asChild>
+                <Link href="/login">Entrar</Link>
+              </Button>
+              <Button variant="primary" asChild>
+                <Link href="/cadastro">Testar gratis</Link>
+              </Button>
+            </div>
+          </div>
         )}
       </header>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 lg:py-32">
-        {/* Background gradient */}
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-violet-50 to-transparent rounded-full opacity-60 blur-3xl" />
-        </div>
-
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Badge variant="primary" className="mb-6 px-4 py-1.5 text-xs font-semibold">
-                <TrendingUp className="h-3.5 w-3.5 mr-1.5" />
-                Novo: Página pública de agendamentos 2.0
+      <main>
+        <section className="border-b border-gray-100">
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_520px] lg:px-8 lg:py-20">
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+              <Badge variant="primary" className="mb-5">
+                <Sparkles className="h-3.5 w-3.5" />
+                Feito para beleza, barbearia e estetica
               </Badge>
+              <h1 className="max-w-3xl text-4xl font-extrabold tracking-tight text-gray-950 sm:text-5xl lg:text-6xl">
+                Agenda online para lotar horarios sem depender do WhatsApp
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray-600">
+                O FlowBook ajuda negocios de atendimento com hora marcada a vender pelo link,
+                organizar profissionais, reduzir faltas e entender o financeiro em um painel simples.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button variant="primary" size="xl" asChild>
+                  <Link href="/cadastro">
+                    Comecar teste gratis
+                    <ArrowRight className="h-5 w-5" />
+                  </Link>
+                </Button>
+                <Button variant="outline" size="xl" asChild>
+                  <Link href="/agendar/studio-flow-beauty">Ver pagina de agendamento</Link>
+                </Button>
+              </div>
+              <p className="mt-4 text-sm text-gray-500">Sem cartao de credito. Configure sua agenda em poucos minutos.</p>
             </motion.div>
 
-            <motion.h1
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl"
+              className="rounded-xl border border-gray-200 bg-white shadow-xl"
             >
-              Gestão de agendamentos{" "}
-              <span className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                sem complicação
-              </span>
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="mx-auto mt-6 max-w-2xl text-lg text-gray-500 leading-relaxed"
-            >
-              O FlowBook centraliza sua agenda, clientes, serviços e financeiro em uma plataforma
-              moderna. Foque no que importa: o seu negócio.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4"
-            >
-              <Link href="/cadastro">
-                <Button variant="primary" size="xl" className="gap-2 shadow-lg shadow-violet-200">
-                  Começar gratuitamente
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/agendar/demo">
-                <Button variant="outline" size="xl">
-                  <Globe className="h-5 w-5" />
-                  Ver demo ao vivo
-                </Button>
-              </Link>
-            </motion.div>
-
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="mt-4 text-sm text-gray-400"
-            >
-              14 dias grátis · Sem cartão de crédito · Cancele quando quiser
-            </motion.p>
-          </div>
-
-          {/* Dashboard Preview */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.4 }}
-            className="mt-16 relative"
-          >
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
-              {/* Fake browser bar */}
-              <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200">
-                <div className="flex gap-1.5">
-                  <div className="h-3 w-3 rounded-full bg-red-400" />
-                  <div className="h-3 w-3 rounded-full bg-amber-400" />
-                  <div className="h-3 w-3 rounded-full bg-emerald-400" />
-                </div>
-                <div className="flex-1 mx-4 h-5 rounded bg-gray-200 flex items-center px-3">
-                  <span className="text-xs text-gray-400">app.flowbook.com.br/dashboard</span>
+              <div className="border-b border-gray-100 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Agenda de hoje</p>
+                    <p className="text-xs text-gray-500">Studio Flow Beauty</p>
+                  </div>
+                  <Badge variant="success">Online</Badge>
                 </div>
               </div>
-              {/* Fake dashboard content */}
-              <div className="p-6 bg-gray-50/50 min-h-[280px]">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                  {[
-                    { label: "Agendamentos", value: "142", color: "bg-violet-500" },
-                    { label: "Clientes", value: "1.234", color: "bg-blue-500" },
-                    { label: "Receita", value: "R$ 18.4k", color: "bg-emerald-500" },
-                    { label: "Taxa de Retorno", value: "78%", color: "bg-amber-500" },
-                  ].map((stat) => (
-                    <div key={stat.label} className="rounded-xl bg-white border border-gray-200 p-4 shadow-sm">
-                      <div className={`h-2 w-8 rounded-full ${stat.color} mb-2`} />
-                      <p className="text-xs text-gray-400">{stat.label}</p>
-                      <p className="text-xl font-bold text-gray-900 mt-0.5">{stat.value}</p>
+              <div className="space-y-3 p-4">
+                {[
+                  ["09:00", "Corte + barba", "Marcos", "Confirmado"],
+                  ["10:30", "Design de sobrancelha", "Bianca", "Pendente"],
+                  ["14:00", "Limpeza de pele", "Camila", "Confirmado"],
+                  ["16:30", "Manicure", "Aline", "Confirmado"],
+                ].map(([time, service, professional, status]) => (
+                  <div key={`${time}-${service}`} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
+                    <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-sm font-bold text-white">
+                      {time}
                     </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2 rounded-xl bg-white border border-gray-200 p-4 h-28 shadow-sm">
-                    <div className="h-3 w-24 rounded bg-gray-100 mb-3" />
-                    <div className="flex items-end gap-1.5 h-16">
-                      {[40, 65, 45, 80, 60, 90, 70, 85, 55, 75, 95, 65].map((h, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 bg-violet-200 rounded-t-sm"
-                          style={{ height: `${h}%` }}
-                        />
-                      ))}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-gray-900">{service}</p>
+                      <p className="text-xs text-gray-500">{professional}</p>
                     </div>
+                    <span className="hidden rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-600 sm:inline">
+                      {status}
+                    </span>
                   </div>
-                  <div className="rounded-xl bg-white border border-gray-200 p-4 h-28 shadow-sm space-y-2">
-                    <div className="h-3 w-20 rounded bg-gray-100" />
-                    {[85, 65, 40].map((w, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-violet-400" />
-                        <div className="h-2 flex-1 rounded-full bg-gray-100">
-                          <div className="h-2 rounded-full bg-violet-400" style={{ width: `${w}%` }} />
-                        </div>
-                      </div>
-                    ))}
+                ))}
+              </div>
+              <div className="grid grid-cols-3 border-t border-gray-100">
+                {[
+                  ["28", "agendamentos"],
+                  ["R$ 4,8k", "na semana"],
+                  ["82%", "retorno"],
+                ].map(([value, label]) => (
+                  <div key={label} className="p-4 text-center">
+                    <p className="text-lg font-extrabold text-gray-900">{value}</p>
+                    <p className="text-xs text-gray-500">{label}</p>
                   </div>
-                </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        <section id="dores" className="bg-gray-50 py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid gap-8 lg:grid-cols-[0.8fr_1fr]">
+              <div>
+                <p className="text-sm font-semibold text-violet-700">O problema real</p>
+                <h2 className="mt-2 text-3xl font-bold text-gray-950">Seu atendimento cresce, mas a agenda vira gargalo.</h2>
+                <p className="mt-4 text-sm leading-relaxed text-gray-600">
+                  O FlowBook foi desenhado para pequenos negocios que querem parecer profissionais
+                  antes mesmo de ter uma grande equipe administrativa.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {pains.map((pain) => (
+                  <div key={pain} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                    <CheckCircle className="mb-3 h-5 w-5 text-violet-600" />
+                    <p className="text-sm font-semibold text-gray-800">{pain}</p>
+                  </div>
+                ))}
               </div>
             </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="py-12 border-y border-gray-100 bg-gray-50/50">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="text-center"
-              >
-                <p className="text-3xl font-extrabold text-gray-900">{stat.value}</p>
-                <p className="mt-1 text-sm text-gray-500">{stat.label}</p>
-              </motion.div>
-            ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Features */}
-      <section id="funcionalidades" className="py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl font-bold text-gray-900 sm:text-4xl"
-            >
-              Tudo que você precisa em{" "}
-              <span className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                um só lugar
-              </span>
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto"
-            >
-              Funcionalidades pensadas para quem quer crescer com eficiência e profissionalismo.
-            </motion.p>
+        <section id="como-funciona" className="py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-sm font-semibold text-violet-700">Como funciona</p>
+                <h2 className="mt-2 text-3xl font-bold text-gray-950">Do cadastro ao primeiro agendamento.</h2>
+              </div>
+              <Button variant="outline" asChild>
+                <Link href="/cadastro">
+                  Comecar agora
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+            <div className="grid gap-4 md:grid-cols-4">
+              {steps.map((step, index) => (
+                <div key={step} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50 text-sm font-bold text-violet-700">
+                    {index + 1}
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900">{step}</p>
+                </div>
+              ))}
+            </div>
           </div>
+        </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, i) => {
-              const Icon = feature.icon;
-              return (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                >
-                  <Card className="h-full hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
-                    <CardContent className="p-6">
-                      <div className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${feature.bg} mb-4`}>
-                        <Icon className={`h-5 w-5 ${feature.color}`} />
+        <section id="recursos" className="bg-gray-50 py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mb-10 max-w-2xl">
+              <p className="text-sm font-semibold text-violet-700">Recursos</p>
+              <h2 className="mt-2 text-3xl font-bold text-gray-950">Tudo que ajuda a vender e operar melhor.</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature) => {
+                const Icon = feature.icon;
+                return (
+                  <Card key={feature.title} className="h-full">
+                    <CardContent className="p-5">
+                      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                        <Icon className="h-5 w-5" />
                       </div>
-                      <h3 className="text-base font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                      <p className="text-sm text-gray-500 leading-relaxed">{feature.description}</p>
+                      <h3 className="text-base font-semibold text-gray-900">{feature.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-gray-500">{feature.description}</p>
                     </CardContent>
                   </Card>
-                </motion.div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Pricing */}
-      <section id="preços" className="py-20 lg:py-28 bg-gray-50/50">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl font-bold text-gray-900 sm:text-4xl"
-            >
-              Preços simples e transparentes
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="mt-4 text-lg text-gray-500"
-            >
-              14 dias grátis em todos os planos. Sem surpresas na fatura.
-            </motion.p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {plans.map((plan, i) => (
-              <motion.div
-                key={plan.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className={`relative rounded-2xl border p-6 ${
-                  plan.highlight
-                    ? "border-violet-500 bg-violet-600 shadow-xl shadow-violet-200"
-                    : "border-gray-200 bg-white shadow-sm"
-                }`}
-              >
-                {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-amber-400 text-amber-900 font-semibold px-3">
-                      Mais popular
-                    </Badge>
-                  </div>
-                )}
-                <div className="mb-6">
-                  <p className={`text-sm font-semibold ${plan.highlight ? "text-violet-200" : "text-gray-500"}`}>
-                    {plan.name}
-                  </p>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className={`text-4xl font-extrabold ${plan.highlight ? "text-white" : "text-gray-900"}`}>
-                      {plan.price}
-                    </span>
-                    <span className={`text-sm ${plan.highlight ? "text-violet-200" : "text-gray-500"}`}>
-                      {plan.period}
-                    </span>
-                  </div>
-                  <p className={`mt-1.5 text-sm ${plan.highlight ? "text-violet-200" : "text-gray-500"}`}>
-                    {plan.description}
-                  </p>
+        <section className="py-16">
+          <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
+            <div>
+              <p className="text-sm font-semibold text-violet-700">Comparativo</p>
+              <h2 className="mt-2 text-3xl font-bold text-gray-950">Troque improviso por processo.</h2>
+              <p className="mt-4 text-sm leading-relaxed text-gray-600">
+                A venda fica mais facil quando o cliente entende que o sistema economiza tempo todo dia.
+              </p>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              {comparison.map((item) => (
+                <div key={item.old} className="grid gap-0 border-b border-gray-100 last:border-b-0 sm:grid-cols-2">
+                  <div className="bg-gray-50 p-4 text-sm text-gray-500">{item.old}</div>
+                  <div className="p-4 text-sm font-semibold text-gray-900">{item.flowbook}</div>
                 </div>
-
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2.5">
-                      <CheckCircle
-                        className={`h-4 w-4 shrink-0 mt-0.5 ${
-                          plan.highlight ? "text-violet-200" : "text-violet-500"
-                        }`}
-                      />
-                      <span className={`text-sm ${plan.highlight ? "text-white" : "text-gray-700"}`}>
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href="/cadastro">
-                  <Button
-                    variant={plan.highlight ? "outline" : "primary"}
-                    className={`w-full ${
-                      plan.highlight
-                        ? "bg-white text-violet-700 hover:bg-violet-50 border-white"
-                        : ""
-                    }`}
-                  >
-                    {plan.cta}
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </motion.div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Testimonials */}
-      <section id="clientes" className="py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl font-bold text-gray-900 sm:text-4xl"
-            >
-              Amado por milhares de profissionais
-            </motion.h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map((testimonial, i) => (
-              <motion.div
-                key={testimonial.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <Card className="h-full hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex mb-3">
-                      {Array.from({ length: testimonial.rating }).map((_, i) => (
-                        <Star key={i} className="h-4 w-4 text-amber-400 fill-amber-400" />
+        <section className="bg-gray-50 py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mb-10 text-center">
+              <p className="text-sm font-semibold text-violet-700">Depoimentos</p>
+              <h2 className="mt-2 text-3xl font-bold text-gray-950">Criado para negocios de atendimento.</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {testimonials.map((testimonial) => (
+                <Card key={testimonial.name}>
+                  <CardContent className="p-5">
+                    <div className="mb-3 flex">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <Star key={index} className="h-4 w-4 fill-amber-400 text-amber-400" />
                       ))}
                     </div>
-                    <p className="text-sm text-gray-700 leading-relaxed mb-4">
-                      &quot;{testimonial.content}&quot;
-                    </p>
-                    <div>
+                    <p className="text-sm leading-relaxed text-gray-700">&quot;{testimonial.text}&quot;</p>
+                    <div className="mt-5">
                       <p className="text-sm font-semibold text-gray-900">{testimonial.name}</p>
                       <p className="text-xs text-gray-500">{testimonial.role}</p>
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* CTA */}
-      <section className="py-20 lg:py-28 bg-gradient-to-br from-violet-600 to-purple-700">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-3xl font-bold text-white sm:text-4xl"
-          >
-            Pronto para transformar seu negócio?
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-            className="mt-4 text-lg text-violet-200"
-          >
-            Junte-se a mais de 12.000 profissionais que já usam o FlowBook.
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-            className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4"
-          >
-            <Link href="/cadastro">
-              <Button
-                size="xl"
-                className="bg-white text-violet-700 hover:bg-violet-50 shadow-lg"
-              >
-                Começar gratuitamente
-                <ArrowRight className="h-5 w-5" />
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button
-                variant="ghost"
-                size="xl"
-                className="text-white hover:bg-white/10"
-              >
-                Já tenho uma conta
-              </Button>
-            </Link>
-          </motion.div>
-          <p className="mt-4 text-sm text-violet-300">
-            14 dias grátis · Sem cartão de crédito
-          </p>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-            <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-purple-700">
-                  <Zap className="h-3.5 w-3.5 text-white" />
+        <section id="precos" className="py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mb-10 text-center">
+              <p className="text-sm font-semibold text-violet-700">Planos</p>
+              <h2 className="mt-2 text-3xl font-bold text-gray-950">Comece simples e cresca quando precisar.</h2>
+            </div>
+            <div className="grid gap-5 lg:grid-cols-3">
+              {SAAS_PLANS.map((plan) => (
+                <div
+                  key={plan.id}
+                  className={`rounded-xl border p-6 shadow-sm ${
+                    plan.highlight ? "border-violet-500 bg-violet-600 text-white" : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className={`text-sm font-semibold ${plan.highlight ? "text-violet-100" : "text-violet-700"}`}>{plan.name}</p>
+                      <p className="mt-2 text-4xl font-extrabold">{plan.price}</p>
+                      <p className={`mt-1 text-sm ${plan.highlight ? "text-violet-100" : "text-gray-500"}`}>{plan.description}</p>
+                    </div>
+                    {plan.highlight && <Badge className="bg-white text-violet-700">Popular</Badge>}
+                  </div>
+                  <ul className="mt-6 space-y-3">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2 text-sm">
+                        <CheckCircle className={`mt-0.5 h-4 w-4 shrink-0 ${plan.highlight ? "text-violet-100" : "text-violet-600"}`} />
+                        <span className={plan.highlight ? "text-white" : "text-gray-700"}>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    className={`mt-7 w-full ${plan.highlight ? "border-white bg-white text-violet-700 hover:bg-violet-50" : ""}`}
+                    variant={plan.highlight ? "outline" : "primary"}
+                    asChild
+                  >
+                    <Link href="/cadastro">{plan.cta}</Link>
+                  </Button>
                 </div>
-                <span className="text-base font-bold text-white">FlowBook</span>
-              </div>
-              <p className="text-sm text-gray-400 leading-relaxed">
-                Gestão de agendamentos para profissionais modernos.
-              </p>
+              ))}
             </div>
-            {[
-              {
-                title: "Produto",
-                links: ["Funcionalidades", "Preços", "Changelog", "Roadmap"],
-              },
-              {
-                title: "Empresa",
-                links: ["Sobre nós", "Blog", "Carreiras", "Imprensa"],
-              },
-              {
-                title: "Suporte",
-                links: ["Central de ajuda", "Documentação", "API", "Contato"],
-              },
-            ].map((col) => (
-              <div key={col.title}>
-                <p className="text-sm font-semibold text-white mb-3">{col.title}</p>
-                <ul className="space-y-2">
-                  {col.links.map((link) => (
-                    <li key={link}>
-                      <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">
-                        {link}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
           </div>
-          <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-500">
-              © 2025 FlowBook. Todos os direitos reservados.
+        </section>
+
+        <section className="bg-violet-600 py-16 text-white">
+          <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+            <Scissors className="mx-auto mb-5 h-9 w-9" />
+            <h2 className="text-3xl font-bold">Seu proximo cliente pode agendar sem mandar mensagem.</h2>
+            <p className="mx-auto mt-4 max-w-2xl text-violet-100">
+              Configure sua empresa, compartilhe o link e use o dashboard para acompanhar tudo com clareza.
             </p>
-            <div className="flex gap-4">
-              <Link href="/privacidade" className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
-                Privacidade
+            <Button className="mt-8 bg-white text-violet-700 hover:bg-violet-50" size="xl" asChild>
+              <Link href="/cadastro">
+                Criar minha agenda
+                <ArrowRight className="h-5 w-5" />
               </Link>
-              <Link href="/termos" className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
-                Termos
-              </Link>
+            </Button>
+          </div>
+        </section>
+      </main>
+
+      <footer className="bg-gray-950 py-10 text-gray-400">
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-6 px-4 sm:flex-row sm:items-center sm:px-6 lg:px-8">
+          <div>
+            <div className="flex items-center gap-2 text-white">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600">
+                <Clock className="h-4 w-4" />
+              </span>
+              <span className="font-bold">FlowBook</span>
             </div>
+            <p className="mt-2 text-sm">Agenda online e gestao para negocios com hora marcada.</p>
+          </div>
+          <div className="flex gap-4 text-sm">
+            <Link href="/termos" className="hover:text-white">Termos</Link>
+            <Link href="/privacidade" className="hover:text-white">Privacidade</Link>
           </div>
         </div>
       </footer>

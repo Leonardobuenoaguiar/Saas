@@ -102,3 +102,66 @@ export const SERVICE_COLORS = [
   "#f97316", // orange
   "#14b8a6", // teal
 ] as const;
+
+export const SAAS_PLANS = [
+  {
+    id: "starter",
+    name: "Starter",
+    price: "R$ 49",
+    description: "Para profissionais autonomos que querem sair do improviso.",
+    cta: "Comecar no Starter",
+    highlight: false,
+    limits: {
+      appointmentsPerMonth: 100,
+      employees: 1,
+      reminders: "email",
+    },
+    features: [
+      "Ate 100 agendamentos por mes",
+      "1 profissional",
+      "Pagina publica de agendamento",
+      "Clientes e historico basico",
+      "Suporte por email",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: "R$ 99",
+    description: "Para studios, barbearias e esteticas com equipe.",
+    cta: "Comecar no Pro",
+    highlight: true,
+    limits: {
+      appointmentsPerMonth: null,
+      employees: 10,
+      reminders: "email_whatsapp",
+    },
+    features: [
+      "Agendamentos ilimitados",
+      "Ate 10 profissionais",
+      "Relatorios de receita e servicos",
+      "Base preparada para lembretes",
+      "Suporte prioritario",
+    ],
+  },
+  {
+    id: "business",
+    name: "Business",
+    price: "R$ 249",
+    description: "Para operacoes maiores que precisam de mais controle.",
+    cta: "Falar com vendas",
+    highlight: false,
+    limits: {
+      appointmentsPerMonth: null,
+      employees: null,
+      reminders: "advanced",
+    },
+    features: [
+      "Tudo do Pro",
+      "Profissionais ilimitados",
+      "Multiunidade em roadmap",
+      "Auditoria e permissoes avancadas",
+      "Onboarding assistido",
+    ],
+  },
+] as const;

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Lock, LogOut, Save, UserRound } from "lucide-react";
+import { Bell, CheckCircle, CreditCard, KeyRound, Lock, LogOut, Save, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { apiPost, apiPut } from "@/lib/api";
+import { SAAS_PLANS } from "@/lib/constants";
 import { useApiGet } from "@/hooks/use-api";
 
 type CurrentUser = {
@@ -19,9 +21,21 @@ type CurrentUser = {
   companySlug: string;
 };
 
+type IntegrationStatus = {
+  status: Record<string, boolean>;
+  providers: {
+    email: string;
+    whatsapp: string;
+    billing: string;
+    mapsMode: string;
+  };
+};
+
 export default function ConfiguracoesPage() {
   const { data: user, isLoading, error, refetch } = useApiGet<CurrentUser>("/api/auth/me");
+  const { data: integrations } = useApiGet<IntegrationStatus>("/api/integrations/status");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -57,6 +71,23 @@ export default function ConfiguracoesPage() {
   async function logout() {
     await apiPost("/api/auth/logout");
     window.location.href = "/login";
+  }
+
+  async function startCheckout() {
+    setIsCheckoutLoading(true);
+    setFormError(null);
+
+    const response = await apiPost<{ checkoutUrl?: string }>("/api/billing/checkout", { planId: "pro" });
+    setIsCheckoutLoading(false);
+
+    if (response.error) {
+      setFormError(response.error);
+      return;
+    }
+
+    if (response.data?.checkoutUrl) {
+      window.location.href = response.data.checkoutUrl;
+    }
   }
 
   return (
@@ -125,6 +156,77 @@ export default function ConfiguracoesPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader>
+              <CardTitle>Plano atual</CardTitle>
+              <CardDescription>Base preparada para cobranca recorrente.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-xl border border-violet-100 bg-violet-50 p-4">
+                <div className="mb-3 flex items-center gap-2 text-violet-700">
+                  <CreditCard className="h-4 w-4" />
+                  <p className="text-sm font-semibold">Pro em teste</p>
+                </div>
+                <p className="text-xs leading-relaxed text-violet-800">
+                  Use esta etapa para validar clientes. Depois, conectamos gateway de pagamento e limites reais por plano.
+                </p>
+              </div>
+              <div className="mt-4 space-y-2">
+                {SAAS_PLANS[1].features.slice(0, 4).map((feature) => (
+                  <div key={feature} className="flex items-center gap-2 text-sm text-gray-600">
+                    <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    {feature}
+                  </div>
+                ))}
+              </div>
+              <Button className="mt-5 w-full" variant="primary" loading={isCheckoutLoading} onClick={startCheckout}>
+                <CreditCard className="h-4 w-4" />
+                Testar checkout
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>APIs conectadas</CardTitle>
+              <CardDescription>Status das integracoes do SaaS.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {[
+                ["Email", integrations?.status.email],
+                ["WhatsApp", integrations?.status.whatsapp],
+                ["Cloudinary", integrations?.status.cloudinary],
+                ["PostHog", integrations?.status.posthog],
+                ["Google Calendar", integrations?.status.googleCalendar],
+                ["Google Maps", integrations?.status.googleMaps],
+                ["Asaas", integrations?.status.asaas],
+                ["Mercado Pago", integrations?.status.mercadoPago],
+              ].map(([label, enabled]) => (
+                <div key={String(label)} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="h-4 w-4 text-violet-600" />
+                    <span className="text-sm font-medium text-gray-700">{label}</span>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${enabled ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                    {enabled ? "Ativa" : "Pendente"}
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Notificacoes</CardTitle>
+              <CardDescription>Canais que serao usados nos lembretes.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <PreferenceRow title="Email para novos agendamentos" description="Avise a empresa quando alguem solicitar horario." defaultChecked />
+              <PreferenceRow title="Lembrete para cliente" description="Preparado para email e WhatsApp antes do atendimento." defaultChecked />
+              <PreferenceRow title="Resumo diario" description="Receba a agenda do dia no inicio do expediente." />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Sessao</CardTitle>
               <CardDescription>Conta logada neste navegador.</CardDescription>
             </CardHeader>
@@ -146,6 +248,29 @@ export default function ConfiguracoesPage() {
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PreferenceRow({
+  title,
+  description,
+  defaultChecked,
+}: {
+  title: string;
+  description: string;
+  defaultChecked?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <Bell className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+        <div>
+          <p className="text-sm font-semibold text-gray-900">{title}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{description}</p>
+        </div>
+      </div>
+      <Switch defaultChecked={defaultChecked} />
     </div>
   );
 }

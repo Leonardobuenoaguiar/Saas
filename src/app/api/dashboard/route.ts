@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { appointments, clients, employees, services, transactions } from "@/db/schema";
+import { appointments, clients, companies, employees, services, transactions, workingHours } from "@/db/schema";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET() {
@@ -25,6 +25,10 @@ export async function GET() {
       topServices,
       completedCount,
       cancelledCount,
+      serviceCount,
+      employeeCount,
+      workingHourCount,
+      companyData,
     ] = await Promise.all([
       db
         .select({ count: sql<number>`count(*)::int` })
@@ -112,6 +116,28 @@ export async function GET() {
         .select({ count: sql<number>`count(*)::int` })
         .from(appointments)
         .where(and(eq(appointments.companyId, session.companyId), eq(appointments.status, "cancelled"), gte(appointments.date, monthStart))),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(services)
+        .where(and(eq(services.companyId, session.companyId), eq(services.isActive, true))),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(employees)
+        .where(and(eq(employees.companyId, session.companyId), eq(employees.isActive, true))),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(workingHours)
+        .where(and(eq(workingHours.companyId, session.companyId), eq(workingHours.isActive, true))),
+      db
+        .select({
+          name: companies.name,
+          slug: companies.slug,
+          description: companies.description,
+          phone: companies.phone,
+        })
+        .from(companies)
+        .where(eq(companies.id, session.companyId))
+        .limit(1),
     ]);
 
     const returnRate =
@@ -139,6 +165,15 @@ export async function GET() {
         monthSummary: {
           completed: completedCount[0]?.count || 0,
           cancelled: cancelledCount[0]?.count || 0,
+        },
+        onboarding: {
+          companyName: companyData[0]?.name || "Sua empresa",
+          publicSlug: companyData[0]?.slug || "",
+          hasCompanyProfile: Boolean(companyData[0]?.description && companyData[0]?.phone),
+          serviceCount: serviceCount[0]?.count || 0,
+          employeeCount: employeeCount[0]?.count || 0,
+          workingHourCount: workingHourCount[0]?.count || 0,
+          appointmentCountThisMonth: completedCount[0]?.count || 0,
         },
       },
     });

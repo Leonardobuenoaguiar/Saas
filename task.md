@@ -41,10 +41,10 @@
 
 ## Fase 6 - Novas Paginas
 - `[x]` Pagina publica de agendamento (`/agendar/[slug]`)
-- `[ ]` Pagina de confirmacao de agendamento
+- `[x]` Pagina de confirmacao de agendamento
 - `[x]` Pagina de configuracoes do dashboard
 - `[x]` Pagina de perfil da empresa
-- `[ ]` Landing page reestruturada (route group)
+- `[x]` Landing page reestruturada (route group)
 - `[x]` Termos de uso e Politica de privacidade
 
 ## Fase 7 - Verificacao

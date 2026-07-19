@@ -9,7 +9,9 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
+  ExternalLink,
   Plus,
+  Settings,
   Star,
   TrendingUp,
   Users,
@@ -59,6 +61,15 @@ type DashboardData = {
     completed: number;
     cancelled: number;
   };
+  onboarding: {
+    companyName: string;
+    publicSlug: string;
+    hasCompanyProfile: boolean;
+    serviceCount: number;
+    employeeCount: number;
+    workingHourCount: number;
+    appointmentCountThisMonth: number;
+  };
 };
 
 export default function DashboardPage() {
@@ -84,6 +95,8 @@ export default function DashboardPage() {
           {error}
         </div>
       )}
+
+      {!isLoading && data?.onboarding && <OnboardingCard onboarding={data.onboarding} />}
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -319,5 +332,104 @@ export default function DashboardPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+function OnboardingCard({ onboarding }: { onboarding: DashboardData["onboarding"] }) {
+  const items = [
+    {
+      title: "Completar perfil publico",
+      description: "Nome, telefone e descricao aumentam a confianca de quem agenda.",
+      href: "/dashboard/empresa",
+      done: onboarding.hasCompanyProfile,
+      icon: Settings,
+    },
+    {
+      title: "Cadastrar servicos",
+      description: "Inclua preco e duracao para liberar a venda pelo link.",
+      href: "/dashboard/servicos",
+      done: onboarding.serviceCount > 0,
+      icon: Star,
+    },
+    {
+      title: "Adicionar profissionais",
+      description: "Organize quem atende e quais servicos cada pessoa realiza.",
+      href: "/dashboard/funcionarios",
+      done: onboarding.employeeCount > 0,
+      icon: Users,
+    },
+    {
+      title: "Configurar horarios",
+      description: "Defina disponibilidade para evitar agendamentos fora do expediente.",
+      href: "/dashboard/empresa",
+      done: onboarding.workingHourCount > 0,
+      icon: Clock,
+    },
+    {
+      title: "Receber primeiro agendamento",
+      description: "Compartilhe sua pagina publica com clientes.",
+      href: onboarding.publicSlug ? `/agendar/${onboarding.publicSlug}` : "/dashboard/empresa",
+      done: onboarding.appointmentCountThisMonth > 0,
+      icon: Calendar,
+      external: Boolean(onboarding.publicSlug),
+    },
+  ];
+  const completed = items.filter((item) => item.done).length;
+  const progress = Math.round((completed / items.length) * 100);
+
+  return (
+    <Card className="mb-6 overflow-hidden">
+      <CardContent className="p-0">
+        <div className="grid gap-0 lg:grid-cols-[320px_1fr]">
+          <div className="border-b border-gray-100 bg-gray-50 p-5 lg:border-b-0 lg:border-r">
+            <Badge variant={completed === items.length ? "success" : "primary"} className="mb-3">
+              {completed} de {items.length} passos
+            </Badge>
+            <h2 className="text-lg font-bold text-gray-900">Prepare sua agenda para vender</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-500">
+              Complete o basico para transformar {onboarding.companyName} em uma pagina de agendamento confiavel.
+            </p>
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between text-xs font-medium text-gray-500">
+                <span>Progresso</span>
+                <span>{progress}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+            {onboarding.publicSlug && (
+              <Button className="mt-5 w-full" variant="outline" size="sm" asChild>
+                <a href={`/agendar/${onboarding.publicSlug}`} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  Abrir pagina publica
+                </a>
+              </Button>
+            )}
+          </div>
+          <div className="grid gap-0 sm:grid-cols-2 xl:grid-cols-5">
+            {items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.title}
+                  href={item.href}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noreferrer" : undefined}
+                  className="border-b border-gray-100 p-4 transition-colors hover:bg-gray-50 sm:border-r xl:border-b-0"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${item.done ? "bg-emerald-50 text-emerald-600" : "bg-violet-50 text-violet-600"}`}>
+                      {item.done ? <CheckCircle className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                    </span>
+                    <ArrowRight className="h-4 w-4 text-gray-300" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500">{item.description}</p>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

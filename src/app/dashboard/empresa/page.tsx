@@ -71,7 +71,7 @@ export default function EmpresaPage() {
         actions={
           data?.slug ? (
             <Button variant="outline" size="sm" asChild>
-              <a href={`/agendar/${data.slug}`} target="_blank">
+              <a href={`/agendar/${data.slug}`} target="_blank" rel="noreferrer">
                 <ExternalLink className="h-4 w-4" />
                 Ver pagina publica
               </a>

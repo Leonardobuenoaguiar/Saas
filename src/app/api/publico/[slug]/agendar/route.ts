@@ -3,6 +3,7 @@ import { addMinutes, format, parse } from "date-fns";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { appointments, companies, employees, services } from "@/db/schema";
+import { notifyBookingRequested } from "@/lib/integrations/booking-notifications";
 import { createAppointmentSchema, publicSlugSchema } from "@/lib/validators";
 
 interface RouteParams {
@@ -34,7 +35,11 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const [company] = await db
-      .select({ id: companies.id })
+      .select({
+        id: companies.id,
+        name: companies.name,
+        email: companies.email,
+      })
       .from(companies)
       .where(and(eq(companies.slug, slug.data.slug), eq(companies.isActive, true)))
       .limit(1);
@@ -44,7 +49,12 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const [service] = await db
-      .select({ id: services.id, duration: services.duration, price: services.price })
+      .select({
+        id: services.id,
+        name: services.name,
+        duration: services.duration,
+        price: services.price,
+      })
       .from(services)
       .where(
         and(
@@ -60,7 +70,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const [employee] = await db
-      .select({ id: employees.id })
+      .select({
+        id: employees.id,
+        name: employees.name,
+      })
       .from(employees)
       .where(
         and(
@@ -120,6 +133,23 @@ export async function POST(request: Request, { params }: RouteParams) {
         endTime: appointments.endTime,
         status: appointments.status,
       });
+
+    void notifyBookingRequested({
+      appointmentId: appointment.id,
+      companyId: company.id,
+      companyName: company.name,
+      companyEmail: company.email,
+      clientName: parsed.data.clientName,
+      clientPhone: parsed.data.clientPhone,
+      clientEmail: parsed.data.clientEmail || null,
+      serviceName: service.name,
+      employeeName: employee.name,
+      date: appointment.date,
+      startTime: appointment.startTime,
+      endTime: appointment.endTime,
+    }).catch((notificationError) => {
+      console.error("[PUBLIC/BOOKING/NOTIFICATIONS]", notificationError);
+    });
 
     return NextResponse.json({ data: appointment }, { status: 201 });
   } catch (error) {
