@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useApiGet } from "@/hooks/use-api";
 
 const navItems = [
   {
@@ -62,6 +62,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { data: user } = useApiGet<{ name: string; role: string }>("/api/auth/me");
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
@@ -169,12 +170,19 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
       {/* User Profile */}
       <div className="border-t border-gray-100 p-3">
         <Link
-          href="/dashboard/perfil"
+          href="/dashboard/configuracoes"
           onClick={isMobile ? onClose : undefined}
           className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors"
         >
           <Avatar className="h-8 w-8 shrink-0">
-            <AvatarFallback className="text-xs">AS</AvatarFallback>
+            <AvatarFallback className="text-xs">
+              {(user?.name || "Usuario")
+                .split(" ")
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()}
+            </AvatarFallback>
           </Avatar>
           <AnimatePresence>
             {isOpen && (
@@ -184,8 +192,8 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
                 exit={{ opacity: 0, width: 0 }}
                 className="overflow-hidden"
               >
-                <p className="text-sm font-medium text-gray-900 whitespace-nowrap">Ana Silva</p>
-                <p className="text-xs text-gray-500 whitespace-nowrap">Administradora</p>
+                <p className="text-sm font-medium text-gray-900 whitespace-nowrap">{user?.name || "Usuario"}</p>
+                <p className="text-xs text-gray-500 whitespace-nowrap">{user?.role || "Conta"}</p>
               </motion.div>
             )}
           </AnimatePresence>

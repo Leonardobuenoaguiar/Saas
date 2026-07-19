@@ -187,8 +187,12 @@ export default function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                     <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                    <Bar dataKey="appointments" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0" }}
+                      formatter={(value) => [Number(value), "Agendamentos"]}
+                      labelFormatter={(label) => `${label}`}
+                    />
+                    <Bar dataKey="appointments" name="Agendamentos" fill="#7c3aed" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

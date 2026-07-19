@@ -33,6 +33,12 @@ export function useApiGet<T>(
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState<ApiResponse["pagination"] | null>(null);
   const mountedRef = useRef(true);
+  const paramsRef = useRef(params);
+  const paramsKey = stableParamsKey(params);
+
+  useEffect(() => {
+    paramsRef.current = params;
+  }, [paramsKey, params]);
 
   const fetchData = useCallback(
     async (newParams?: Record<string, string | number | undefined>) => {
@@ -40,7 +46,7 @@ export function useApiGet<T>(
       setError(null);
 
       try {
-        const res = await apiGet<T>(path, newParams || params);
+        const res = await apiGet<T>(path, newParams || paramsRef.current);
         if (!mountedRef.current) return;
 
         if (res.error) {
@@ -60,7 +66,7 @@ export function useApiGet<T>(
         }
       }
     },
-    [path, params]
+    [path]
   );
 
   useEffect(() => {
@@ -79,7 +85,7 @@ export function useApiGet<T>(
     return () => {
       mountedRef.current = false;
     };
-  }, [immediate, fetchData]);
+  }, [immediate, fetchData, paramsKey]);
 
   return {
     data,
@@ -89,6 +95,22 @@ export function useApiGet<T>(
     refetch: fetchData,
     mutate: setData,
   };
+}
+
+function stableParamsKey(params?: Record<string, string | number | undefined>) {
+  if (!params) return "";
+
+  return JSON.stringify(
+    Object.keys(params)
+      .sort()
+      .reduce<Record<string, string | number>>((acc, key) => {
+        const value = params[key];
+        if (value !== undefined && value !== "") {
+          acc[key] = value;
+        }
+        return acc;
+      }, {})
+  );
 }
 
 // ─── Hook: Mutations (POST/PUT/DELETE) ──────────────────────────────────────
